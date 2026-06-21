@@ -26,12 +26,17 @@ const SubscriptionCard = ({
       onPress={onPress}
       activeOpacity={0.8}
       className={`sub-card ${expanded ? "sub-card-expanded" : ""}`}
-      style={!expanded && color ? { backgroundColor: color + "15", borderColor: color + "30" } : undefined}
+      style={!expanded && color ? { backgroundColor: color, borderColor: color } : undefined}
     >
       {/* Header Info */}
       <View className="sub-head">
         <View className="sub-main">
-          <Image source={icon} className="sub-icon" resizeMode="contain" />
+          <View
+            style={{ backgroundColor: "rgba(255,255,255,0.45)" }}
+            className="sub-icon-box"
+          >
+            <Image source={icon} className="sub-icon" resizeMode="contain" />
+          </View>
           <View className="sub-copy">
             <Text className="sub-title" numberOfLines={1}>
               {name}
@@ -43,7 +48,7 @@ const SubscriptionCard = ({
         </View>
         <View className="sub-price-box">
           <Text className="sub-price">{formatCurrency(price, currency)}</Text>
-          <Text className="sub-billing">/{billing}</Text>
+          <Text className="sub-billing">per {billing.toLowerCase().replace(/ly$/, "")}</Text>
         </View>
       </View>
 

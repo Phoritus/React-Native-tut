@@ -126,8 +126,12 @@
     @apply flex-row items-center gap-3;
   }
 
+  .upcoming-icon-box {
+    @apply size-14 items-center justify-center rounded-2xl bg-[#F6ECC9];
+  }
+
   .upcoming-icon {
-    @apply size-14;
+    @apply size-8;
   }
 
   .upcoming-price {
@@ -158,8 +162,12 @@
     @apply min-w-0 flex-1 flex-row items-center gap-3;
   }
 
+  .sub-icon-box {
+    @apply size-16 items-center justify-center rounded-xl;
+  }
+
   .sub-icon {
-    @apply size-16 rounded-lg;
+    @apply size-10 rounded-lg;
   }
 
   .sub-copy {
