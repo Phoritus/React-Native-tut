@@ -1,9 +1,10 @@
 import "@/global.css";
-import { ClerkProvider, useAuth } from "@clerk/expo";
+import { ClerkProvider, useAuth, useUser } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import { useFonts } from "expo-font";
-import { SplashScreen, Stack } from "expo-router";
+import { SplashScreen, Stack, useGlobalSearchParams, usePathname } from "expo-router";
 import { useEffect } from "react";
+import { PostHogProvider, usePostHog } from "posthog-react-native";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -15,6 +16,10 @@ if (!publishableKey) {
 
 function RootLayoutContent() {
   const { isLoaded: authLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
+  const pathname = usePathname();
+  const params = useGlobalSearchParams();
+  const posthog = usePostHog();
   const [fontsLoaded] = useFonts({
     "sans-regular": require("../assets/fonts/PlusJakartaSans-Regular.ttf"),
     "sans-bold": require("../assets/fonts/PlusJakartaSans-Bold.ttf"),
@@ -30,6 +35,21 @@ function RootLayoutContent() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, authLoaded]);
+
+  useEffect(() => {
+    if (fontsLoaded && authLoaded) {
+      posthog.screen(pathname, params);
+    }
+  }, [authLoaded, fontsLoaded, params, pathname, posthog]);
+
+  useEffect(() => {
+    if (isSignedIn && user) {
+      posthog.identify(user.id, {
+        email: user.emailAddresses[0]?.emailAddress,
+        name: user.fullName ?? user.firstName ?? undefined,
+      });
+    }
+  }, [isSignedIn, user, posthog]);
 
   // Don't render app until both are ready
   if (!fontsLoaded || !authLoaded) return null;
@@ -50,8 +70,14 @@ function RootLayoutContent() {
 
 export default function RootLayout() {
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <RootLayoutContent />
-    </ClerkProvider>
+    <PostHogProvider
+      apiKey={process.env.EXPO_PUBLIC_POSTHOG_API_KEY!}
+      autocapture={{ captureScreens: false }}
+      options={{ host: process.env.EXPO_PUBLIC_POSTHOG_HOST }}
+    >
+      <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+        <RootLayoutContent />
+      </ClerkProvider>
+    </PostHogProvider>
   );
 }

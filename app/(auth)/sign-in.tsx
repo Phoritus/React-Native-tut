@@ -4,11 +4,24 @@ import { useSignIn } from '@clerk/expo';
 import { useState } from 'react';
 import { SafeAreaView as RNSafeAreaView } from 'react-native-safe-area-context';
 import { styled } from 'nativewind';
+import { usePostHog } from 'posthog-react-native';
 
 const SafeAreaView = styled(RNSafeAreaView);
 
+const getClerkErrorCode = (error: unknown) => {
+    if (typeof error !== 'object' || error === null) return 'unknown';
+
+    const clerkError = error as {
+        code?: string;
+        errors?: { code?: string }[];
+    };
+
+    return clerkError.errors?.[0]?.code ?? clerkError.code ?? 'unknown';
+};
+
 const SignIn = () => {
     const { signIn, errors, fetchStatus } = useSignIn();
+    const posthog = usePostHog();
 
     const [emailAddress, setEmailAddress] = useState('');
     const [password, setPassword] = useState('');
@@ -26,17 +39,28 @@ const SignIn = () => {
     const handleSubmit = async () => {
         if (!formValid) return;
 
+        posthog.capture('auth sign in attempted', {
+            method: 'password',
+        });
+
         const { error } = await signIn.password({
             emailAddress,
             password,
         });
 
         if (error) {
+            posthog.capture('auth sign in failed', {
+                method: 'password',
+                error_code: getClerkErrorCode(error),
+            });
             console.error(JSON.stringify(error, null, 2));
             return;
         }
 
         if (signIn.status === 'complete') {
+            posthog.capture('auth sign in completed', {
+                method: 'password',
+            });
             await signIn.finalize({
                 navigate: ({ session }) => {
                     if (session?.currentTask) {
@@ -45,9 +69,15 @@ const SignIn = () => {
                 },
             });
         } else if (signIn.status === 'needs_second_factor') {
+            posthog.capture('auth sign in second factor required', {
+                method: 'password',
+            });
             // Handle MFA if needed (not implemented in this basic flow)
             console.log('MFA required');
         } else if (signIn.status === 'needs_client_trust') {
+            posthog.capture('auth sign in client trust required', {
+                method: 'password',
+            });
             // Send email code for client trust verification
             const emailCodeFactor = signIn.supportedSecondFactors.find(
                 (factor) => factor.strategy === 'email_code'
@@ -55,16 +85,39 @@ const SignIn = () => {
 
             if (emailCodeFactor) {
                 await signIn.mfa.sendEmailCode();
+                posthog.capture('auth sign in verification code sent', {
+                    method: 'email_code',
+                });
             }
         } else {
+            posthog.capture('auth sign in incomplete', {
+                method: 'password',
+                status: signIn.status,
+            });
             console.error('Sign-in attempt not complete:', signIn);
         }
     };
 
     const handleVerify = async () => {
-        await signIn.mfa.verifyEmailCode({ code });
+        posthog.capture('auth sign in verification attempted', {
+            method: 'email_code',
+        });
+
+        try {
+            await signIn.mfa.verifyEmailCode({ code });
+        } catch (error) {
+            posthog.capture('auth sign in verification failed', {
+                method: 'email_code',
+                error_code: getClerkErrorCode(error),
+            });
+            console.error(JSON.stringify(error, null, 2));
+            return;
+        }
 
         if (signIn.status === 'complete') {
+            posthog.capture('auth sign in completed', {
+                method: 'email_code',
+            });
             await signIn.finalize({
                 navigate: ({ session }) => {
                     if (session?.currentTask) {
@@ -73,8 +126,24 @@ const SignIn = () => {
                 },
             });
         } else {
+            posthog.capture('auth sign in incomplete', {
+                method: 'email_code',
+                status: signIn.status,
+            });
             console.error('Sign-in attempt not complete:', signIn);
         }
+    };
+
+    const handleResendCode = async () => {
+        await signIn.mfa.sendEmailCode();
+        posthog.capture('auth sign in verification code resent', {
+            method: 'email_code',
+        });
+    };
+
+    const handleStartOver = () => {
+        signIn.reset();
+        posthog.capture('auth sign in reset');
     };
 
     // Show verification screen if client trust is needed
@@ -140,7 +209,7 @@ const SignIn = () => {
 
                                     <Pressable
                                         className="auth-secondary-button"
-                                        onPress={() => signIn.mfa.sendEmailCode()}
+                                        onPress={handleResendCode}
                                         disabled={fetchStatus === 'fetching'}
                                     >
                                         <Text className="auth-secondary-button-text">Resend Code</Text>
@@ -148,7 +217,7 @@ const SignIn = () => {
 
                                     <Pressable
                                         className="auth-secondary-button"
-                                        onPress={() => signIn.reset()}
+                                        onPress={handleStartOver}
                                         disabled={fetchStatus === 'fetching'}
                                     >
                                         <Text className="auth-secondary-button-text">Start Over</Text>

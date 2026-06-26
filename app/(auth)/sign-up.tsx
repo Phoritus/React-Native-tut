@@ -1,6 +1,7 @@
 import { useAuth, useSignUp } from "@clerk/expo";
 import { Link } from "expo-router";
 import { styled } from "nativewind";
+import { usePostHog } from "posthog-react-native";
 import { useState } from "react";
 import {
     KeyboardAvoidingView,
@@ -15,9 +16,21 @@ import { SafeAreaView as RNSafeAreaView } from "react-native-safe-area-context";
 
 const SafeAreaView = styled(RNSafeAreaView);
 
+const getClerkErrorCode = (error: unknown) => {
+  if (typeof error !== "object" || error === null) return "unknown";
+
+  const clerkError = error as {
+    code?: string;
+    errors?: { code?: string }[];
+  };
+
+  return clerkError.errors?.[0]?.code ?? clerkError.code ?? "unknown";
+};
+
 const SignUp = () => {
   const { signUp, errors, fetchStatus } = useSignUp();
   const { isSignedIn } = useAuth();
+  const posthog = usePostHog();
 
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
@@ -38,12 +51,20 @@ const SignUp = () => {
   const handleSubmit = async () => {
     if (!formValid) return;
 
+    posthog.capture("auth sign up attempted", {
+      method: "password",
+    });
+
     const { error } = await signUp.password({
       emailAddress,
       password,
     });
 
     if (error) {
+      posthog.capture("auth sign up failed", {
+        method: "password",
+        error_code: getClerkErrorCode(error),
+      });
       console.error(JSON.stringify(error, null, 2));
       return;
     }
@@ -51,15 +72,34 @@ const SignUp = () => {
     // Send verification email
     if (!error) {
       await signUp.verifications.sendEmailCode();
+      posthog.capture("auth sign up verification code sent", {
+        method: "email_code",
+      });
     }
   };
 
   const handleVerify = async () => {
-    await signUp.verifications.verifyEmailCode({
-      code,
+    posthog.capture("auth sign up verification attempted", {
+      method: "email_code",
     });
 
+    try {
+      await signUp.verifications.verifyEmailCode({
+        code,
+      });
+    } catch (error) {
+      posthog.capture("auth sign up verification failed", {
+        method: "email_code",
+        error_code: getClerkErrorCode(error),
+      });
+      console.error(JSON.stringify(error, null, 2));
+      return;
+    }
+
     if (signUp.status === "complete") {
+      posthog.capture("auth sign up completed", {
+        method: "email_code",
+      });
       await signUp.finalize({
         navigate: ({ session }) => {
           if (session?.currentTask) {
@@ -68,8 +108,19 @@ const SignUp = () => {
         },
       });
     } else {
+      posthog.capture("auth sign up incomplete", {
+        method: "email_code",
+        status: signUp.status,
+      });
       console.error("Sign-up attempt not complete:", signUp);
     }
+  };
+
+  const handleResendCode = async () => {
+    await signUp.verifications.sendEmailCode();
+    posthog.capture("auth sign up verification code resent", {
+      method: "email_code",
+    });
   };
 
   // Don't show anything if already signed in or sign-up is complete
@@ -148,7 +199,7 @@ const SignUp = () => {
 
                   <Pressable
                     className="auth-secondary-button"
-                    onPress={() => signUp.verifications.sendEmailCode()}
+                    onPress={handleResendCode}
                     disabled={fetchStatus === "fetching"}
                   >
                     <Text className="auth-secondary-button-text">

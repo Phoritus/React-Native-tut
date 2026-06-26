@@ -3,14 +3,19 @@ import { SafeAreaView as RNSafeAreaView } from "react-native-safe-area-context";
 import { styled } from "nativewind";
 import { useClerk, useUser } from '@clerk/expo';
 import images from '@/constants/images';
+import { usePostHog } from 'posthog-react-native';
 const SafeAreaView = styled(RNSafeAreaView);
 
 const Settings = () => {
     const { signOut } = useClerk();
     const { user } = useUser();
+    const posthog = usePostHog();
 
     const handleSignOut = async () => {
+        posthog.capture('auth sign out attempted');
         await signOut();
+        posthog.capture('auth signed out');
+        posthog.reset();
     };
 
     const displayName = user?.firstName || user?.fullName || user?.emailAddresses[0]?.emailAddress || 'User';
