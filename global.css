@@ -366,6 +366,10 @@
     @apply mt-auto max-h-[85%] rounded-t-3xl bg-background;
   }
 
+  .modal-container-full {
+    @apply flex-1 mt-14 max-h-full rounded-t-3xl bg-background;
+  }
+
   .modal-header {
     @apply flex-row items-center justify-between border-b border-border px-5 py-4;
   }

@@ -55,9 +55,10 @@ const SignUp = () => {
       method: "password",
     });
 
-    const { error } = await signUp.password({
+    const { error } = await signUp.create({
       emailAddress,
       password,
+      firstName: emailAddress.split('@')[0],
     });
 
     if (error) {
