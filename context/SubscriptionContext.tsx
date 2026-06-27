@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
 import { HOME_SUBSCRIPTIONS } from '@/constants/data';
-import { Subscription } from '@/type';
 
 interface SubscriptionContextType {
   subscriptions: Subscription[];

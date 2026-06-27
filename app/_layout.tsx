@@ -38,13 +38,17 @@ function RootLayoutContent() {
 }
 
 import { SubscriptionProvider } from "@/context/SubscriptionContext";
-
+import { PostHogProvider } from 'posthog-react-native';
 export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <SubscriptionProvider>
-        <RootLayoutContent />
-      </SubscriptionProvider>
+      <PostHogProvider apiKey={process.env.EXPO_PUBLIC_POSTHOG_API_KEY!} options={{
+        host: process.env.EXPO_PUBLIC_POSTHOG_HOST,
+      }}>
+        <SubscriptionProvider>
+          <RootLayoutContent />
+        </SubscriptionProvider>
+      </PostHogProvider>
     </ClerkProvider>
   );
 }

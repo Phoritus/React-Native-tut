@@ -1,18 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import { icons } from "@/constants/icons";
+import { clsx } from "clsx";
+import dayjs from "dayjs";
+import { usePostHog } from "posthog-react-native";
+import React, { useEffect, useState } from "react";
 import {
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
-  View,
+  Platform,
+  Pressable,
+  ScrollView,
   Text,
   TextInput,
-  Pressable,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Keyboard,
-} from 'react-native';
-import dayjs from 'dayjs';
-import { clsx } from 'clsx';
-import { icons } from '@/constants/icons';
+  View,
+} from "react-native";
 
 interface CreateSubscriptionModalProps {
   visible: boolean;
@@ -21,25 +22,25 @@ interface CreateSubscriptionModalProps {
 }
 
 const CATEGORIES = [
-  'Entertainment',
-  'AI Tools',
-  'Developer Tools',
-  'Design',
-  'Productivity',
-  'Cloud',
-  'Music',
-  'Other',
+  "Entertainment",
+  "AI Tools",
+  "Developer Tools",
+  "Design",
+  "Productivity",
+  "Cloud",
+  "Music",
+  "Other",
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
-  Entertainment: '#ffb3ba',
-  'AI Tools': '#b8d4e3',
-  'Developer Tools': '#e8def8',
-  Design: '#b8e8d0',
-  Productivity: '#f5c542',
-  Cloud: '#a3c4f3',
-  Music: '#f1c0e8',
-  Other: '#cfd4d9',
+  Entertainment: "#ffb3ba",
+  "AI Tools": "#b8d4e3",
+  "Developer Tools": "#e8def8",
+  Design: "#b8e8d0",
+  Productivity: "#f5c542",
+  Cloud: "#a3c4f3",
+  Music: "#f1c0e8",
+  Other: "#cfd4d9",
 };
 
 export default function CreateSubscriptionModal({
@@ -47,20 +48,21 @@ export default function CreateSubscriptionModal({
   onClose,
   onCreate,
 }: CreateSubscriptionModalProps) {
-  const [name, setName] = useState('');
-  const [price, setPrice] = useState('');
-  const [frequency, setFrequency] = useState<'Monthly' | 'Yearly'>('Monthly');
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [frequency, setFrequency] = useState<"Monthly" | "Yearly">("Monthly");
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const posthog = usePostHog();
 
   useEffect(() => {
     const showListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => setKeyboardVisible(true)
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setKeyboardVisible(true),
     );
     const hideListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setKeyboardVisible(false)
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardVisible(false),
     );
 
     return () => {
@@ -77,35 +79,44 @@ export default function CreateSubscriptionModal({
     const parsedPrice = parseFloat(price);
     const startDate = dayjs().toISOString();
     const renewalDate =
-      frequency === 'Monthly'
-        ? dayjs().add(1, 'month').toISOString()
-        : dayjs().add(1, 'year').toISOString();
+      frequency === "Monthly"
+        ? dayjs().add(1, "month").toISOString()
+        : dayjs().add(1, "year").toISOString();
 
     const newSubscription = {
       id: Math.random().toString(36).substr(2, 9),
       name: name.trim(),
       price: parsedPrice,
-      currency: 'USD',
+      currency: "USD",
       billing: frequency,
       category,
-      status: 'active',
+      status: "active",
       startDate,
       renewalDate,
       icon: icons.wallet,
       color: CATEGORY_COLORS[category] || CATEGORY_COLORS.Other,
-      plan: frequency + ' Plan', // generic plan name based on frequency
-      paymentMethod: 'Not specified',
+      plan: frequency + " Plan", // generic plan name based on frequency
+      paymentMethod: "Not specified",
     };
 
     onCreate(newSubscription);
+
+    // Post Hog Event
+    posthog.capture("subscription_created", {
+      name: newSubscription.name,
+      price: newSubscription.price,
+      frequency: newSubscription.billing,
+      category: newSubscription.category,
+    });
+
     resetForm();
     onClose();
   };
 
   const resetForm = () => {
-    setName('');
-    setPrice('');
-    setFrequency('Monthly');
+    setName("");
+    setPrice("");
+    setFrequency("Monthly");
     setCategory(CATEGORIES[0]);
   };
 
@@ -122,11 +133,16 @@ export default function CreateSubscriptionModal({
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1"
       >
         <View className="modal-overlay">
-          <View className={clsx("modal-container w-full", isKeyboardVisible && "modal-container-full")}>
+          <View
+            className={clsx(
+              "modal-container w-full",
+              isKeyboardVisible && "modal-container-full",
+            )}
+          >
             {/* Header */}
             <View className="modal-header">
               <Text className="modal-title">New Subscription</Text>
@@ -172,15 +188,15 @@ export default function CreateSubscriptionModal({
                 <View className="picker-row">
                   <Pressable
                     className={clsx(
-                      'picker-option',
-                      frequency === 'Monthly' && 'picker-option-active'
+                      "picker-option",
+                      frequency === "Monthly" && "picker-option-active",
                     )}
-                    onPress={() => setFrequency('Monthly')}
+                    onPress={() => setFrequency("Monthly")}
                   >
                     <Text
                       className={clsx(
-                        'picker-option-text',
-                        frequency === 'Monthly' && 'picker-option-text-active'
+                        "picker-option-text",
+                        frequency === "Monthly" && "picker-option-text-active",
                       )}
                     >
                       Monthly
@@ -188,15 +204,15 @@ export default function CreateSubscriptionModal({
                   </Pressable>
                   <Pressable
                     className={clsx(
-                      'picker-option',
-                      frequency === 'Yearly' && 'picker-option-active'
+                      "picker-option",
+                      frequency === "Yearly" && "picker-option-active",
                     )}
-                    onPress={() => setFrequency('Yearly')}
+                    onPress={() => setFrequency("Yearly")}
                   >
                     <Text
                       className={clsx(
-                        'picker-option-text',
-                        frequency === 'Yearly' && 'picker-option-text-active'
+                        "picker-option-text",
+                        frequency === "Yearly" && "picker-option-text-active",
                       )}
                     >
                       Yearly
@@ -213,15 +229,15 @@ export default function CreateSubscriptionModal({
                     <Pressable
                       key={cat}
                       className={clsx(
-                        'category-chip',
-                        category === cat && 'category-chip-active'
+                        "category-chip",
+                        category === cat && "category-chip-active",
                       )}
                       onPress={() => setCategory(cat)}
                     >
                       <Text
                         className={clsx(
-                          'category-chip-text',
-                          category === cat && 'category-chip-text-active'
+                          "category-chip-text",
+                          category === cat && "category-chip-text-active",
                         )}
                       >
                         {cat}
@@ -234,8 +250,8 @@ export default function CreateSubscriptionModal({
               {/* Submit Button */}
               <Pressable
                 className={clsx(
-                  'auth-button mt-8',
-                  !isFormValid && 'auth-button-disabled'
+                  "auth-button mt-8",
+                  !isFormValid && "auth-button-disabled",
                 )}
                 onPress={handleCreate}
                 disabled={!isFormValid}
